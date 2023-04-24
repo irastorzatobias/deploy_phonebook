@@ -38,7 +38,7 @@ app.get("/api/persons/:id", (request, response) => {
   }
 });
 
-app.delete("/api/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", (request, response, next) => {
   try {
     const { id } = request.params;
     Person.findByIdAndRemove(id).then(
@@ -49,7 +49,7 @@ app.delete("/api/persons/:id", (request, response) => {
   }
 });
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", async (request, response, next) => {
   const person = {
     name: request.body.name,
     number: request.body.number,
@@ -57,38 +57,45 @@ app.post("/api/persons", (request, response) => {
 
   const newPerson = new Person(person);
 
-  Person.findOne({ name: person.name }).then((res) => {
-    if (res) {
-      Person.findOneAndUpdate(
+  try {
+    const existingPerson = await Person.findOne({ name: person.name });
+
+    if (existingPerson) {
+      const updatedPerson = await Person.findOneAndUpdate(
         { name: person.name },
         { number: person.number },
         { new: true }
       );
 
-      return response.status(204).send('updated')
+      console.log("updated");
+      response.json(updatedPerson);
     } else {
-      newPerson.save().then((result) => {
-        console.log("saved");
-      });
-      return response.status(204).send('saved')
+      const savedPerson = await newPerson.save();
+      console.log("saved");
+      response.json(savedPerson);
     }
-  });
-
+  } catch (e) {
+    response.status(404).send("error validating");
+  }
 });
 
-app.put('/api/persons/:id', (request, response, next) => {
+app.put("/api/persons/:id", (request, response, next) => {
   const body = request.body;
 
   const person = {
     name: body.name,
-    number: body.number
+    number: body.number,
   };
 
-  Person.findOneAndUpdate({name: person.name }, {number: person.number}, { new: true })
-    .then(updatedPerson => {
+  Person.findOneAndUpdate(
+    { name: person.name },
+    { number: person.number },
+    { new: true }
+  )
+    .then((updatedPerson) => {
       response.json(updatedPerson);
     })
-    .catch(error => next(error));
+    .catch((error) => next(error));
 });
 
 const PORT = process.env.PORT;
